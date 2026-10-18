@@ -148,6 +148,30 @@ class TestCLI(unittest.TestCase):
     def test_no_args(self):
         self.assertEqual(self._run().returncode, 2)
 
+    def test_around_numeric_task_id(self):
+        # Streams from some runtimes carry integer taskIds; the CLI arg is a
+        # string, so a raw == comparison never matches ("task not found").
+        p = "/tmp/tlr_numeric.jsonl"
+        with open(p, "w") as f:
+            for st in ("working", "completed"):
+                f.write(json.dumps(su(42, st)) + "\n")
+        r = self._run("around", p, "42")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("completed", r.stdout)
+
+
+class NumericIdGroupingTest(unittest.TestCase):
+    def test_timeline_groups_numeric_and_string_ids(self):
+        import contextlib
+        import io
+        lines = [json.dumps(su(42, "working")), json.dumps(su("42", "completed"))]
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            n = tr.timeline(lines)
+        out = buf.getvalue()
+        self.assertIn("1 task(s)", out)  # 42 and "42" are one task, not two
+        self.assertIn("working → completed", out)
+
 
 if __name__ == "__main__":
     unittest.main()

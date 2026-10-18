@@ -58,8 +58,9 @@ def timeline(lines):
         if not res:
             continue
         tid = res.get("taskId")
-        if not tid:
+        if tid is None or tid == "":
             continue
+        tid = str(tid)  # streams mix numeric and string ids; group them as one
         t = tasks.setdefault(tid, {"states": [], "artifacts": 0, "lines": []})
         t["lines"].append(lineno)
         if res.get("kind") == "status-update":
@@ -86,8 +87,9 @@ def timeline(lines):
 def around(lines, task_id, before=3, after=3):
     # find the task's line range
     lo, hi, found = None, None, False
+    want = str(task_id)  # CLI arg is always a string; the id inside the JSON may be a number
     for lineno, obj, res in _iter_events(lines):
-        if res and res.get("taskId") == task_id:
+        if res and res.get("taskId") is not None and str(res.get("taskId")) == want:
             found = True
             if lo is None:
                 lo = lineno
@@ -102,7 +104,8 @@ def around(lines, task_id, before=3, after=3):
     for lineno, obj, res in _iter_events(lines):
         if start <= lineno <= end:
             desc = _describe(res) if res else "(not an A2A result)"
-            is_target = bool(res and res.get("taskId") == task_id)
+            is_target = bool(res and res.get("taskId") is not None
+                             and str(res.get("taskId")) == want)
             marker = " <" if is_target else "  "
             print(f"  {marker} line {lineno:5d}  {desc}")
     print("\nuse `at <line>` for the full JSON of any line above")
